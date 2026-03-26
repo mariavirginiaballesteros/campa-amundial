@@ -53,11 +53,11 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                   <LogOut className="w-4 h-4 mr-2" /> Salir
                 </Button>
               ) : (
-                <Link to="/login">
-                  <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
+                <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
+                  <Link to="/login">
                     <LogIn className="w-4 h-4 mr-2" /> Soy RRHH
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
             </nav>
           </div>

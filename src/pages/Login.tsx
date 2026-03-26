@@ -1,16 +1,56 @@
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Trophy } from 'lucide-react';
+import { Navigate, Link } from 'react-router-dom';
+import { Trophy, Mail, Lock, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { showSuccess, showError } from '@/utils/toast';
 
 export default function Login() {
   const { session } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
+  // Si ya hay sesión, redirigir al inicio
   if (session) {
     return <Navigate to="/" />;
   }
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isRegistering) {
+        // Registrar nuevo usuario
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        showSuccess("Usuario creado con éxito. Ya puedes iniciar sesión.");
+        setIsRegistering(false);
+      } else {
+        // Iniciar sesión
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) throw error;
+        showSuccess("Sesión iniciada correctamente.");
+      }
+    } catch (error: any) {
+      showError(error.message || "Ocurrió un error en la autenticación.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -19,19 +59,74 @@ export default function Login() {
           <div className="bg-secondary p-3 rounded-full mb-4 shadow-sm">
             <Trophy className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-center text-primary">Acceso RRHH</h1>
-          <p className="text-gray-500 text-sm mt-1 text-center">Inicia sesión para gestionar equipos y puntos.</p>
+          <h1 className="text-2xl font-bold text-center text-primary">
+            {isRegistering ? "Crear cuenta RRHH" : "Acceso RRHH"}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1 text-center">
+            {isRegistering 
+              ? "Registra un nuevo usuario para administrar la campaña." 
+              : "Inicia sesión para gestionar equipos y puntos."}
+          </p>
         </div>
         
-        <Auth 
-          supabaseClient={supabase} 
-          appearance={{ theme: ThemeSupa }} 
-          providers={[]} 
-          theme="light" 
-        />
-        
-        <div className="mt-6 text-center">
-          <a href="/" className="text-sm text-primary hover:underline">Volver al Tablero General</a>
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo electrónico</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="tu@correo.com" 
+                className="pl-9"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="password">Contraseña</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="••••••••" 
+                className="pl-9"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 mt-2" disabled={loading}>
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : null}
+            {isRegistering ? "Crear cuenta" : "Ingresar"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center space-y-4">
+          <button 
+            type="button"
+            onClick={() => setIsRegistering(!isRegistering)}
+            className="text-sm text-secondary font-medium hover:underline"
+          >
+            {isRegistering 
+              ? "¿Ya tienes cuenta? Inicia sesión aquí" 
+              : "¿No tienes cuenta? Regístrate aquí"}
+          </button>
+          
+          <div className="pt-4 border-t border-gray-100">
+            <Link to="/" className="text-sm text-gray-500 hover:text-primary transition-colors">
+              ← Volver al Tablero General
+            </Link>
+          </div>
         </div>
       </div>
     </div>
