@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Activity, Participant, Participation, Pitch, Team, ActivityType } from "@/types";
+import { Activity, Participant, Participation, Pitch, Team } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -18,19 +18,33 @@ interface AppContextType {
   toggleParticipantParticipation: (activityId: string, teamId: string, participantId: string, completed: boolean) => Promise<void>;
   setQuantityParticipation: (activityId: string, teamId: string, quantity: number) => Promise<void>;
   getTeamTotalPoints: (teamId: string) => number;
-  // Nuevos métodos para Canchas y Actividades
-  addPitch: (name: string) => Promise<void>;
-  updatePitch: (id: string, name: string) => Promise<void>;
-  deletePitch: (id: string) => Promise<void>;
-  addActivity: (activity: Omit<Activity, "id">) => Promise<void>;
-  updateActivity: (id: string, activity: Partial<Activity>) => Promise<void>;
-  deleteActivity: (id: string) => Promise<void>;
-  loadDefaultTemplate: () => Promise<void>;
 }
+
+const defaultPitches: Pitch[] = [
+  { id: "1", name: "Cancha 1 – El vestuario" },
+  { id: "2", name: "Cancha 2 – El campo de juego" },
+  { id: "3", name: "Cancha 3 – Juego limpio" },
+  { id: "4", name: "Cancha 4 – Nuestra tribuna" },
+];
+
+const defaultActivities: Activity[] = [
+  { id: "a1", pitchId: "1", name: "El equipo titular", type: "team", points: 100 },
+  { id: "a2", pitchId: "1", name: "Ficha técnica actualizada", type: "team", points: 50 },
+  { id: "a3", pitchId: "1", name: "Identidad del plantel: nombre y escudo", type: "team", points: 100 },
+  { id: "a4", pitchId: "1", name: "El parche oficial", type: "team", points: 30 },
+  { id: "a5", pitchId: "2", name: "Entrenamiento táctico", type: "individual", points: 20 },
+  { id: "a6", pitchId: "2", name: "El reglamento del juego", type: "team", points: 40 },
+  { id: "a7", pitchId: "2", name: "Fichas de jugada", type: "team", points: 40 },
+  { id: "a8", pitchId: "3", name: "El reciclaje sale a la cancha", type: "team", points: 60 },
+  { id: "a9", pitchId: "3", name: "La jugada solidaria del año", type: "quantity", points: 5, description: "5 pts por objeto" },
+  { id: "a10", pitchId: "3", name: "Pausa táctica", type: "individual", points: 5 },
+  { id: "a11", pitchId: "4", name: "El Pálpito: Acierto ganador/empate", type: "individual", points: 10 },
+  { id: "a12", pitchId: "4", name: "El Pálpito: Acierto resultado exacto", type: "individual", points: 30 },
+];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Mapeos
+// Funciones auxiliares para mapear la BD a los tipos de TypeScript
 const mapTeam = (row: any): Team => ({
   id: row.id, code: row.code, name: row.name, ambassador: row.ambassador,
   headquarters: row.headquarters, area: row.area, logoUrl: row.logo_url, active: row.active
@@ -43,47 +57,39 @@ const mapParticipation = (row: any): Participation => ({
   id: row.id, activityId: row.activity_id, teamId: row.team_id,
   participantId: row.participant_id, quantity: row.quantity, points: row.points, date: row.date
 });
-const mapPitch = (row: any): Pitch => ({ id: row.id, name: row.name });
-const mapActivity = (row: any): Activity => ({
-  id: row.id, pitchId: row.pitch_id, name: row.name, type: row.type as ActivityType, 
-  points: row.points, description: row.description
-});
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [participations, setParticipations] = useState<Participation[]>([]);
-  const [pitches, setPitches] = useState<Pitch[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
 
+  // Fetch data from Supabase
   const fetchData = async () => {
     try {
-      const [teamsRes, partsRes, partRes, pitchesRes, actRes] = await Promise.all([
+      const [teamsRes, partsRes, participationsRes] = await Promise.all([
         supabase.from("teams").select("*"),
         supabase.from("participants").select("*"),
         supabase.from("participations").select("*"),
-        supabase.from("pitches").select("*").order("created_at", { ascending: true }),
-        supabase.from("activities").select("*").order("created_at", { ascending: true }),
       ]);
 
       if (teamsRes.data) setTeams(teamsRes.data.map(mapTeam));
       if (partsRes.data) setParticipants(partsRes.data.map(mapParticipant));
-      if (partRes.data) setParticipations(partRes.data.map(mapParticipation));
-      if (pitchesRes.data) setPitches(pitchesRes.data.map(mapPitch));
-      if (actRes.data) setActivities(actRes.data.map(mapActivity));
+      if (participationsRes.data) setParticipations(participationsRes.data.map(mapParticipation));
     } catch (error) {
       console.error("Error fetching data:", error);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // --- MÉTODOS DE EQUIPOS ---
   const addTeam = async (team: Omit<Team, "id">) => {
     const { data, error } = await supabase.from("teams").insert({
       code: team.code, name: team.name, ambassador: team.ambassador,
       headquarters: team.headquarters, area: team.area, logo_url: team.logoUrl, active: team.active
     }).select().single();
+    
     if (error) { showError("Error al crear equipo"); return; }
     if (data) { setTeams([...teams, mapTeam(data)]); showSuccess("Equipo creado"); }
   };
@@ -91,18 +97,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateTeam = async (id: string, updatedFields: Partial<Team>) => {
     const dbFields = { logo_url: updatedFields.logoUrl, ...updatedFields };
     delete dbFields.logoUrl;
+
     const { error } = await supabase.from("teams").update(dbFields).eq("id", id);
-    if (!error) setTeams(teams.map((t) => (t.id === id ? { ...t, ...updatedFields } : t)));
+    if (error) { showError("Error al actualizar"); return; }
+    setTeams(teams.map((t) => (t.id === id ? { ...t, ...updatedFields } : t)));
   };
 
   const deleteTeam = async (id: string) => {
     const { error } = await supabase.from("teams").delete().eq("id", id);
-    if (!error) {
-      setTeams(teams.filter((t) => t.id !== id));
-      setParticipants(participants.filter((p) => p.teamId !== id));
-      setParticipations(participations.filter((p) => p.teamId !== id));
-      showSuccess("Equipo eliminado");
-    }
+    if (error) { showError("Error al eliminar equipo"); return; }
+    setTeams(teams.filter((t) => t.id !== id));
+    setParticipants(participants.filter((p) => p.teamId !== id));
+    setParticipations(participations.filter((p) => p.teamId !== id));
+    showSuccess("Equipo eliminado");
   };
 
   const addParticipant = async (participant: Omit<Participant, "id">) => {
@@ -110,94 +117,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       team_id: participant.teamId, name: participant.name, 
       area: participant.area, headquarters: participant.headquarters, active: participant.active
     }).select().single();
-    if (!error && data) { setParticipants([...participants, mapParticipant(data)]); showSuccess("Jugador agregado"); }
+
+    if (error) { showError("Error al agregar jugador"); return; }
+    if (data) { setParticipants([...participants, mapParticipant(data)]); showSuccess("Jugador agregado"); }
   };
 
   const deleteParticipant = async (id: string) => {
     const { error } = await supabase.from("participants").delete().eq("id", id);
-    if (!error) {
-      setParticipants(participants.filter((p) => p.id !== id));
-      setParticipations(participations.filter((p) => p.participantId !== id));
-    }
+    if (error) { showError("Error al eliminar jugador"); return; }
+    setParticipants(participants.filter((p) => p.id !== id));
+    setParticipations(participations.filter((p) => p.participantId !== id));
   };
 
-  // --- MÉTODOS DE CANCHAS Y ACTIVIDADES ---
-  const addPitch = async (name: string) => {
-    const { data, error } = await supabase.from("pitches").insert({ name }).select().single();
-    if (!error && data) { setPitches([...pitches, mapPitch(data)]); showSuccess("Cancha creada"); }
-    else showError("Error al crear cancha");
+  const getTeamTotalPoints = (teamId: string) => {
+    return participations.filter((p) => p.teamId === teamId).reduce((sum, p) => sum + p.points, 0);
   };
-
-  const updatePitch = async (id: string, name: string) => {
-    const { error } = await supabase.from("pitches").update({ name }).eq("id", id);
-    if (!error) { setPitches(pitches.map(p => p.id === id ? { ...p, name } : p)); showSuccess("Cancha actualizada"); }
-  };
-
-  const deletePitch = async (id: string) => {
-    const { error } = await supabase.from("pitches").delete().eq("id", id);
-    if (!error) {
-      setPitches(pitches.filter(p => p.id !== id));
-      setActivities(activities.filter(a => a.pitchId !== id));
-      showSuccess("Cancha eliminada");
-    } else showError("Error al eliminar");
-  };
-
-  const addActivity = async (activity: Omit<Activity, "id">) => {
-    const { data, error } = await supabase.from("activities").insert({
-      pitch_id: activity.pitchId, name: activity.name, type: activity.type, points: activity.points, description: activity.description
-    }).select().single();
-    if (!error && data) { setActivities([...activities, mapActivity(data)]); showSuccess("Actividad creada"); }
-    else showError("Error al crear actividad");
-  };
-
-  const updateActivity = async (id: string, activity: Partial<Activity>) => {
-    const { error } = await supabase.from("activities").update({
-      name: activity.name, type: activity.type, points: activity.points, description: activity.description
-    }).eq("id", id);
-    if (!error) { setActivities(activities.map(a => a.id === id ? { ...a, ...activity } : a)); showSuccess("Actividad actualizada"); }
-  };
-
-  const deleteActivity = async (id: string) => {
-    const { error } = await supabase.from("activities").delete().eq("id", id);
-    if (!error) {
-      setActivities(activities.filter(a => a.id !== id));
-      setParticipations(participations.filter(p => p.activityId !== id));
-      showSuccess("Actividad eliminada");
-    }
-  };
-
-  const loadDefaultTemplate = async () => {
-    try {
-      const template = [
-        { name: "Cancha 1 – El vestuario", acts: [{ n: "El equipo titular", t: "team", p: 100 }, { n: "Ficha técnica", t: "team", p: 50 }] },
-        { name: "Cancha 2 – El campo de juego", acts: [{ n: "Entrenamiento táctico", t: "individual", p: 20 }, { n: "Fichas de jugada", t: "team", p: 40 }] },
-        { name: "Cancha 3 – Juego limpio", acts: [{ n: "El reciclaje sale a la cancha", t: "team", p: 60 }, { n: "Jugada solidaria", t: "quantity", p: 5, d: "5 pts por objeto" }] }
-      ];
-
-      for (const p of template) {
-        const { data: pitch } = await supabase.from("pitches").insert({ name: p.name }).select().single();
-        if (pitch) {
-          for (const a of p.acts) {
-            await supabase.from("activities").insert({ pitch_id: pitch.id, name: a.n, type: a.t, points: a.p, description: a.d || "" });
-          }
-        }
-      }
-      await fetchData();
-      showSuccess("Plantilla cargada con éxito");
-    } catch (e) {
-      showError("Error al cargar la plantilla");
-    }
-  };
-
-  // --- MÉTODOS DE PUNTOS ---
-  const getTeamTotalPoints = (teamId: string) => participations.filter((p) => p.teamId === teamId).reduce((sum, p) => sum + p.points, 0);
 
   const toggleTeamParticipation = async (activityId: string, teamId: string, completed: boolean) => {
-    const activity = activities.find((a) => a.id === activityId);
+    const activity = defaultActivities.find((a) => a.id === activityId);
     if (!activity) return;
 
     if (completed) {
-      const { data, error } = await supabase.from("participations").insert({ activity_id: activityId, team_id: teamId, points: activity.points }).select().single();
+      const { data, error } = await supabase.from("participations").insert({
+        activity_id: activityId, team_id: teamId, points: activity.points
+      }).select().single();
       if (!error && data) setParticipations([...participations, mapParticipation(data)]);
     } else {
       await supabase.from("participations").delete().match({ activity_id: activityId, team_id: teamId });
@@ -206,11 +149,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleParticipantParticipation = async (activityId: string, teamId: string, participantId: string, completed: boolean) => {
-    const activity = activities.find((a) => a.id === activityId);
+    const activity = defaultActivities.find((a) => a.id === activityId);
     if (!activity) return;
 
     if (completed) {
-      const { data, error } = await supabase.from("participations").insert({ activity_id: activityId, team_id: teamId, participant_id: participantId, points: activity.points }).select().single();
+      const { data, error } = await supabase.from("participations").insert({
+        activity_id: activityId, team_id: teamId, participant_id: participantId, points: activity.points
+      }).select().single();
       if (!error && data) setParticipations([...participations, mapParticipation(data)]);
     } else {
       await supabase.from("participations").delete().match({ activity_id: activityId, team_id: teamId, participant_id: participantId });
@@ -219,8 +164,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setQuantityParticipation = async (activityId: string, teamId: string, quantity: number) => {
-    const activity = activities.find((a) => a.id === activityId);
+    const activity = defaultActivities.find((a) => a.id === activityId);
     if (!activity) return;
+
     const existing = participations.find((p) => p.activityId === activityId && p.teamId === teamId);
     
     if (quantity > 0) {
@@ -229,7 +175,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { data } = await supabase.from("participations").update({ quantity, points }).eq("id", existing.id).select().single();
         if (data) setParticipations(participations.map(p => p.id === existing.id ? mapParticipation(data) : p));
       } else {
-        const { data } = await supabase.from("participations").insert({ activity_id: activityId, team_id: teamId, quantity, points }).select().single();
+        const { data } = await supabase.from("participations").insert({
+          activity_id: activityId, team_id: teamId, quantity, points
+        }).select().single();
         if (data) setParticipations([...participations, mapParticipation(data)]);
       }
     } else if (existing) {
@@ -241,9 +189,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
-        teams, participants, pitches, activities, participations,
+        teams, participants, pitches: defaultPitches, activities: defaultActivities, participations,
         addTeam, updateTeam, deleteTeam, addParticipant, deleteParticipant,
-        addPitch, updatePitch, deletePitch, addActivity, updateActivity, deleteActivity, loadDefaultTemplate,
         toggleTeamParticipation, toggleParticipantParticipation, setQuantityParticipation, getTeamTotalPoints,
       }}
     >
