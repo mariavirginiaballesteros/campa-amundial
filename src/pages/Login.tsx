@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
-import { Trophy, Mail, Lock, Loader2 } from 'lucide-react';
+import { Trophy, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,13 +27,19 @@ export default function Login() {
     try {
       if (isRegistering) {
         // Registrar nuevo usuario
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         
         if (error) throw error;
-        showSuccess("Usuario creado con éxito. Ya puedes iniciar sesión.");
+        
+        if (data.session === null && data.user) {
+          showSuccess("Cuenta creada. Si no puedes entrar, desactiva 'Confirm Email' en Supabase.");
+        } else {
+          showSuccess("Usuario creado con éxito. Ya puedes iniciar sesión.");
+        }
+        
         setIsRegistering(false);
       } else {
         // Iniciar sesión
@@ -42,11 +48,17 @@ export default function Login() {
           password,
         });
         
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Email not confirmed")) {
+            throw new Error("Debes confirmar tu correo o desactivar la confirmación en Supabase Auth.");
+          }
+          throw error;
+        }
+        
         showSuccess("Sesión iniciada correctamente.");
       }
     } catch (error: any) {
-      showError(error.message || "Ocurrió un error en la autenticación.");
+      showError(error.message || "Credenciales incorrectas o error de conexión.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +66,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 border-t-4 border-primary">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 border-t-4 border-primary relative overflow-hidden">
+        
         <div className="flex flex-col items-center mb-8">
           <div className="bg-secondary p-3 rounded-full mb-4 shadow-sm">
             <Trophy className="w-8 h-8 text-white" />
@@ -64,8 +77,8 @@ export default function Login() {
           </h1>
           <p className="text-gray-500 text-sm mt-1 text-center">
             {isRegistering 
-              ? "Registra un nuevo usuario para administrar la campaña." 
-              : "Inicia sesión para gestionar equipos y puntos."}
+              ? "Registra un usuario administrador." 
+              : "Inicia sesión para gestionar puntos."}
           </p>
         </div>
         
@@ -110,6 +123,13 @@ export default function Login() {
             {isRegistering ? "Crear cuenta" : "Ingresar"}
           </Button>
         </form>
+
+        {isRegistering && (
+          <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded-md flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p><strong>Atención:</strong> Si vas a usar un correo inventado, asegúrate de desactivar "Confirm email" en los ajustes de Auth de tu panel de Supabase.</p>
+          </div>
+        )}
 
         <div className="mt-6 text-center space-y-4">
           <button 

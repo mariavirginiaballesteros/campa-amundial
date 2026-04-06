@@ -29,7 +29,8 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               <h1 className="font-bold text-xl tracking-tight hidden sm:block">Campaña Mundial</h1>
             </div>
             <nav className="flex items-center space-x-1">
-              <div className="hidden md:flex space-x-1 mr-4">
+              {/* Desktop Nav */}
+              <div className="hidden md:flex items-center space-x-1">
                 {navLinks.map((link) => {
                   const Icon = link.icon;
                   const isActive = location.pathname === link.path;
@@ -46,26 +47,28 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                     </Link>
                   );
                 })}
+                
+                <div className="ml-4 border-l border-white/20 pl-4">
+                  {session ? (
+                    <Button variant="ghost" size="sm" onClick={signOut} className="text-white hover:bg-white/10 hover:text-white">
+                      <LogOut className="w-4 h-4 mr-2" /> Salir
+                    </Button>
+                  ) : (
+                    <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
+                      <Link to="/login">
+                        <LogIn className="w-4 h-4 mr-2" /> Soy RRHH
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               </div>
-              
-              {session ? (
-                <Button variant="ghost" size="sm" onClick={signOut} className="text-white hover:bg-white/10 hover:text-white">
-                  <LogOut className="w-4 h-4 mr-2" /> Salir
-                </Button>
-              ) : (
-                <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
-                  <Link to="/login">
-                    <LogIn className="w-4 h-4 mr-2" /> Soy RRHH
-                  </Link>
-                </Button>
-              )}
             </nav>
           </div>
         </div>
       </header>
 
-      {/* Mobile Nav */}
-      <div className="md:hidden bg-primary shadow flex justify-around p-2 sticky top-16 z-10 border-b-2 border-secondary/50">
+      {/* Mobile Nav (Visible on small screens) */}
+      <div className="md:hidden bg-primary shadow flex justify-around items-end p-2 sticky top-16 z-10 border-b-2 border-secondary/50">
         {navLinks.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.path;
@@ -73,15 +76,36 @@ export const Layout = ({ children }: { children: ReactNode }) => {
             <Link
               key={link.path}
               to={link.path}
-              className={`flex flex-col items-center p-2 rounded text-xs font-medium transition-colors
+              className={`flex flex-col items-center p-2 rounded text-xs font-medium transition-colors flex-1
                 ${isActive ? "text-secondary font-bold" : "text-white/80"}
               `}
             >
               <Icon className="w-5 h-5 mb-1" />
-              {link.name}
+              <span className="text-center">{link.name}</span>
             </Link>
           );
         })}
+        
+        {/* Botón de Auth en Mobile */}
+        {session ? (
+          <button
+            onClick={signOut}
+            className="flex flex-col items-center p-2 rounded text-xs font-medium text-white/80 hover:text-white transition-colors flex-1"
+          >
+            <LogOut className="w-5 h-5 mb-1" />
+            <span className="text-center">Salir</span>
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            className={`flex flex-col items-center p-2 rounded text-xs font-medium transition-colors flex-1
+              ${location.pathname === "/login" ? "text-secondary font-bold" : "text-white/80 hover:text-white"}
+            `}
+          >
+            <LogIn className="w-5 h-5 mb-1" />
+            <span className="text-center">RRHH</span>
+          </Link>
+        )}
       </div>
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
