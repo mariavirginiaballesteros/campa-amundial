@@ -26,50 +26,59 @@ const Activities = () => {
           Canchas y Actividades
         </h2>
         <p className="text-muted-foreground">
-          Selecciona una cancha y marca la participación de los equipos para sumar puntos.
+          Explora las canchas y asigna puntos a los equipos.
         </p>
       </div>
 
-      {teams.length === 0 ? (
-        <div className="text-center p-12 bg-gray-50 rounded-xl border">
-          <p className="text-gray-500">Primero debes crear equipos en la sección "Equipos" para poder cargarles puntaje.</p>
+      {teams.length === 0 && (
+        <div className="mb-6 p-4 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 flex items-start gap-3 shadow-sm">
+          <Info className="w-5 h-5 mt-0.5 shrink-0" />
+          <p className="text-sm">
+            <strong>Aún no hay equipos creados.</strong> Puedes visualizar las canchas y actividades, pero para asignar puntos primero debes registrar al menos un equipo en la pestaña "Equipos".
+          </p>
         </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <Accordion type="single" collapsible className="w-full space-y-4">
-            {pitches.map((pitch) => {
-              const pitchActivities = activities.filter(a => a.pitchId === pitch.id);
-              
-              return (
-                <AccordionItem value={pitch.id} key={pitch.id} className="border rounded-lg px-4 bg-gray-50/50">
-                  <AccordionTrigger className="hover:no-underline py-4 text-lg font-bold text-primary">
-                    {pitch.name}
-                  </AccordionTrigger>
-                  <AccordionContent className="pt-2 pb-6 space-y-6">
-                    {pitchActivities.map(activity => (
-                      <div key={activity.id} className="bg-white p-4 rounded-lg border shadow-sm">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 border-b pb-3">
-                          <div>
-                            <h4 className="font-bold text-md text-gray-800">{activity.name}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-medium uppercase">
-                                {activity.type === 'team' ? 'Por Equipo' : activity.type === 'individual' ? 'Por Jugador' : 'Por Cantidad'}
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm border p-4">
+        <Accordion type="single" collapsible className="w-full space-y-4">
+          {pitches.map((pitch) => {
+            const pitchActivities = activities.filter(a => a.pitchId === pitch.id);
+            
+            return (
+              <AccordionItem value={pitch.id} key={pitch.id} className="border rounded-lg px-4 bg-gray-50/50">
+                <AccordionTrigger className="hover:no-underline py-4 text-lg font-bold text-primary">
+                  {pitch.name}
+                </AccordionTrigger>
+                <AccordionContent className="pt-2 pb-6 space-y-6">
+                  {pitchActivities.map(activity => (
+                    <div key={activity.id} className="bg-white p-4 rounded-lg border shadow-sm">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 border-b pb-3">
+                        <div>
+                          <h4 className="font-bold text-md text-gray-800">{activity.name}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full font-medium uppercase">
+                              {activity.type === 'team' ? 'Por Equipo' : activity.type === 'individual' ? 'Por Jugador' : 'Por Cantidad'}
+                            </span>
+                            {activity.description && (
+                              <span className="text-xs flex items-center gap-1 text-gray-500">
+                                <Info className="w-3 h-3" /> {activity.description}
                               </span>
-                              {activity.description && (
-                                <span className="text-xs flex items-center gap-1 text-gray-500">
-                                  <Info className="w-3 h-3" /> {activity.description}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="mt-2 md:mt-0 flex items-center gap-1 bg-secondary/10 px-3 py-1.5 rounded-full text-secondary font-bold text-sm">
-                            <Star className="w-4 h-4 fill-secondary" /> 
-                            {activity.points} pts {activity.type === 'team' ? 'fijos' : 'c/u'}
+                            )}
                           </div>
                         </div>
+                        <div className="mt-2 md:mt-0 flex items-center gap-1 bg-secondary/10 px-3 py-1.5 rounded-full text-secondary font-bold text-sm">
+                          <Star className="w-4 h-4 fill-secondary" /> 
+                          {activity.points} pts {activity.type === 'team' ? 'fijos' : 'c/u'}
+                        </div>
+                      </div>
 
-                        <div className="space-y-3">
-                          {teams.map(team => {
+                      <div className="space-y-3">
+                        {teams.length === 0 ? (
+                          <div className="text-sm text-gray-400 italic py-3 text-center bg-gray-50 rounded border border-dashed">
+                            No hay equipos para mostrar en esta actividad.
+                          </div>
+                        ) : (
+                          teams.map(team => {
                             // Render depending on activity type
                             if (activity.type === 'team') {
                               const isCompleted = participations.some(p => p.activityId === activity.id && p.teamId === team.id);
@@ -162,17 +171,17 @@ const Activities = () => {
                               </Accordion>
                             );
 
-                          })}
-                        </div>
+                          })
+                        )}
                       </div>
-                    ))}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-        </div>
-      )}
+                    </div>
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      </div>
     </Layout>
   );
 };

@@ -44,7 +44,6 @@ const defaultActivities: Activity[] = [
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Funciones auxiliares para mapear la BD a los tipos de TypeScript
 const mapTeam = (row: any): Team => ({
   id: row.id, code: row.code, name: row.name, ambassador: row.ambassador,
   headquarters: row.headquarters, area: row.area, logoUrl: row.logo_url, active: row.active
@@ -63,7 +62,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [participations, setParticipations] = useState<Participation[]>([]);
 
-  // Fetch data from Supabase
   const fetchData = async () => {
     try {
       const [teamsRes, partsRes, participationsRes] = await Promise.all([
@@ -72,11 +70,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from("participations").select("*"),
       ]);
 
+      if (teamsRes.error) console.error("Error cargando equipos:", teamsRes.error);
+      if (partsRes.error) console.error("Error cargando participantes:", partsRes.error);
+
       if (teamsRes.data) setTeams(teamsRes.data.map(mapTeam));
       if (partsRes.data) setParticipants(partsRes.data.map(mapParticipant));
       if (participationsRes.data) setParticipations(participationsRes.data.map(mapParticipation));
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error general fetching data:", error);
     }
   };
 
@@ -85,27 +86,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const addTeam = async (team: Omit<Team, "id">) => {
-    const { data, error } = await supabase.from("teams").insert({
-      code: team.code, name: team.name, ambassador: team.ambassador,
-      headquarters: team.headquarters, area: team.area, logo_url: team.logoUrl, active: team.active
-    }).select().single();
-    
-    if (error) { showError("Error al crear equipo"); return; }
-    if (data) { setTeams([...teams, mapTeam(data)]); showSuccess("Equipo creado"); }
+    try {
+      const { data, error } = await supabase.from("teams").insert({
+        code: team.code, 
+        name: team.name, 
+        ambassador: team.ambassador,
+        headquarters: team.headquarters, 
+        area: team.area, 
+        logo_url: team.logoUrl || null, 
+        active: team.active
+      }).select().single();
+      
+      if (error) { 
+        console.error("Error Supabase al crear equipo:", error);
+        showError(`Error al crear: ${error.message}`); 
+        return; 
+      }
+      if (data) { 
+        setTeams([...teams, mapTeam(data)]); 
+        showSuccess("Equipo creado"); 
+      }
+    } catch (err: any) {
+      showError(`Error inesperado: ${err.message}`);
+    }
   };
 
   const updateTeam = async (id: string, updatedFields: Partial<Team>) => {
-    const dbFields = { logo_url: updatedFields.logoUrl, ...updatedFields };
+    const dbFields = { logo_url: updatedFields.logoUrl || null, ...updatedFields };
     delete dbFields.logoUrl;
 
     const { error } = await supabase.from("teams").update(dbFields).eq("id", id);
-    if (error) { showError("Error al actualizar"); return; }
+    if (error) { 
+      showError(`Error al actualizar: ${error.message}`); 
+      return; 
+    }
     setTeams(teams.map((t) => (t.id === id ? { ...t, ...updatedFields } : t)));
   };
 
   const deleteTeam = async (id: string) => {
     const { error } = await supabase.from("teams").delete().eq("id", id);
-    if (error) { showError("Error al eliminar equipo"); return; }
+    if (error) { 
+      showError(`Error al eliminar: ${error.message}`); 
+      return; 
+    }
     setTeams(teams.filter((t) => t.id !== id));
     setParticipants(participants.filter((p) => p.teamId !== id));
     setParticipations(participations.filter((p) => p.teamId !== id));
@@ -114,17 +137,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addParticipant = async (participant: Omit<Participant, "id">) => {
     const { data, error } = await supabase.from("participants").insert({
-      team_id: participant.teamId, name: participant.name, 
-      area: participant.area, headquarters: participant.headquarters, active: participant.active
+      team_id: participant.teamId, 
+      name: participant.name, 
+      area: participant.area || null, 
+      headquarters: participant.headquarters || null, 
+      active: participant.active
     }).select().single();
 
-    if (error) { showError("Error al agregar jugador"); return; }
-    if (data) { setParticipants([...participants, mapParticipant(data)]); showSuccess("Jugador agregado"); }
+    if (error) { 
+      showError(`Error al agregar jugador: ${error.message}`); 
+      return; 
+    }
+    if (data) { 
+      setParticipants([...participants, mapParticipant(data)]); 
+      showSuccess("Jugador agregado"); 
+    }
   };
 
   const deleteParticipant = async (id: string) => {
     const { error } = await supabase.from("participants").delete().eq("id", id);
-    if (error) { showError("Error al eliminar jugador"); return; }
+    if (error) { 
+      showError(`Error al eliminar: ${error.message}`); 
+      return; 
+    }
     setParticipants(participants.filter((p) => p.id !== id));
     setParticipations(participations.filter((p) => p.participantId !== id));
   };
@@ -142,6 +177,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activity_id: activityId, team_id: teamId, points: activity.points
       }).select().single();
       if (!error && data) setParticipations([...participations, mapParticipation(data)]);
+      else if (error) showError(`Error: ${error.message}`);
     } else {
       await supabase.from("participations").delete().match({ activity_id: activityId, team_id: teamId });
       setParticipations(participations.filter((p) => !(p.activityId === activityId && p.teamId === teamId)));
@@ -157,6 +193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activity_id: activityId, team_id: teamId, participant_id: participantId, points: activity.points
       }).select().single();
       if (!error && data) setParticipations([...participations, mapParticipation(data)]);
+      else if (error) showError(`Error: ${error.message}`);
     } else {
       await supabase.from("participations").delete().match({ activity_id: activityId, team_id: teamId, participant_id: participantId });
       setParticipations(participations.filter((p) => !(p.activityId === activityId && p.teamId === teamId && p.participantId === participantId)));
@@ -172,13 +209,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (quantity > 0) {
       const points = activity.points * quantity;
       if (existing) {
-        const { data } = await supabase.from("participations").update({ quantity, points }).eq("id", existing.id).select().single();
+        const { data, error } = await supabase.from("participations").update({ quantity, points }).eq("id", existing.id).select().single();
         if (data) setParticipations(participations.map(p => p.id === existing.id ? mapParticipation(data) : p));
+        else if (error) showError(`Error: ${error.message}`);
       } else {
-        const { data } = await supabase.from("participations").insert({
+        const { data, error } = await supabase.from("participations").insert({
           activity_id: activityId, team_id: teamId, quantity, points
         }).select().single();
         if (data) setParticipations([...participations, mapParticipation(data)]);
+        else if (error) showError(`Error: ${error.message}`);
       }
     } else if (existing) {
       await supabase.from("participations").delete().eq("id", existing.id);
